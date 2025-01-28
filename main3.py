@@ -1,71 +1,56 @@
-import sys
-import locale
-import codecs
-
-# Фикс кодировки
-if sys.platform.startswith("linux"):
-    locale.getpreferredencoding = lambda: "UTF-8"
-    sys.stdin = codecs.getreader("UTF-8")(sys.stdin.detach())
-    sys.stdout = codecs.getwriter("UTF-8")(sys.stdout.detach())
-
-sys.stdout.reconfigure(encoding='utf-8')  # Для всех систем
-
-from transformers import AutoTokenizer, AutoModelForCausalLM
 import streamlit as st
-from huggingface_hub import login
-import torch
-
-... # остальной код без изменений
-
-login(token="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")
-
-# Загрузка модели с кэшированием
-@st.cache_resource
-def load_model():
-    model_name = "black-forest-labs/FLUX.1-dev"
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=True)
-    model = AutoModelForCausalLM.from_pretrained(model_name, use_auth_token=True)
-    return model, tokenizer
+from huggingface_hub import InferenceClient
+from PIL import Image
+import io
 
 def main():
-    st.title("FLUX.1-dev Text Generation")
+    st.title("FLUX.1-dev Image Generation")
     
-    # Загрузка модели и токенизатора
-    model, tokenizer = load_model()
+    # Конфигурация через Secrets.toml
+    api_key = st.secrets.get("HF_API_KEY", "your-api-key-here")
     
-    # Выбор устройства
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
+    # Инициализация клиента
+    client = InferenceClient(token=api_key)
     
-    # Поле для ввода текста
-    prompt = st.text_area("Enter your prompt:", height=100)
+    # Интерфейс
+    prompt = st.text_area("Enter your prompt:", 
+                         "Astronaut riding a horse",
+                         height=100)
     
-    # Параметры генерации
-    max_length = st.slider("Max length", 50, 500, 100)
-    temperature = st.slider("Temperature", 0.1, 2.0, 0.8)
+    # Параметры генерации (только поддерживаемые)
+    with st.expander("Advanced Settings"):
+        width = st.slider("Width", 256, 1024, 512)
+        height = st.slider("Height", 256, 1024, 512)
+        steps = st.slider("Steps", 10, 100, 25)
+        cfg_scale = st.slider("CFG Scale", 1.0, 20.0, 7.0)
     
-    if st.button("Generate"):
-        if prompt:
-            with st.spinner("Generating..."):
-                # Токенизация и генерация
-                inputs = tokenizer(prompt, return_tensors="pt").to(device)
-                
-                # Генерация текста
-                outputs = model.generate(
-                    inputs.input_ids,
-                    max_length=max_length,
-                    temperature=temperature,
-                    do_sample=True,
-                    pad_token_id=tokenizer.eos_token_id
+    if st.button("Generate Image"):
+        if not prompt:
+            st.error("Please enter a prompt")
+            return
+            
+        with st.spinner("Generating image..."):
+            try:
+                # Генерация изображения с актуальными параметрами
+                image = client.text_to_image(
+                    prompt,
+                    model="black-forest-labs/FLUX.1-dev",
+                    width=width,
+                    height=height,
+                    guidance_scale=cfg_scale,
+                    num_inference_steps=steps
                 )
                 
-                # Декодирование результата
-                generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                # Конвертация в BytesIO
+                img_byte_arr = io.BytesIO()
+                image.save(img_byte_arr, format='PNG')
                 
-                st.subheader("Generated Text:")
-                st.write(generated_text)
-        else:
-            st.warning("Please enter a prompt")
+                st.image(img_byte_arr.getvalue(),
+                       caption=prompt,
+                       use_column_width=True)
+                
+            except Exception as e:
+                st.error(f"Generation failed: {str(e)}")
 
 if __name__ == "__main__":
     main()
