@@ -12,6 +12,7 @@ sys.stdout.reconfigure(encoding='utf-8')  # Для всех систем
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import streamlit as st
+from huggingface_hub import login
 import torch
 
 ... # остальной код без изменений
