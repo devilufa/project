@@ -1,66 +1,59 @@
 import streamlit as st
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from huggingface_hub import login
-import torch
-import os
-
-# Авторизация
-login(token=os.getenv("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"))
-
-@st.cache_resource
-def load_model():
-    model_name = "black-forest-labs/FLUX.1-dev"
-    
-    # Явно указываем класс модели для загрузки
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_name,
-        use_auth_token=True,
-        trust_remote_code=True  # Добавляем для кастомных моделей
-    )
-    
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        use_auth_token=True,
-        trust_remote_code=True,  # Критически важно для этой модели
-        torch_dtype=torch.float16  # Для экономии памяти
-    )
-    return model, tokenizer
+from huggingface_hub import InferenceClient
+from PIL import Image
+import io
 
 def main():
-    st.title("FLUX.1-dev Text Generation")
-    model, tokenizer = load_model()
+    st.title("FLUX.1-dev Image Generation")
     
-    # Автоматическое определение устройства
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model.to(device)
+    # Конфигурация через Secrets.toml
+    api_key = st.secrets.get("HF_API_KEY", "your-api-key-here")
+    
+    # Инициализация клиента
+    client = InferenceClient(provider="hf-inference", api_key=api_key)
     
     # Интерфейс
-    prompt = st.text_area("Input text:", height=150)
-    max_length = st.slider("Max length", 100, 2000, 512)
-    temperature = st.slider("Temperature", 0.1, 2.0, 0.7)
+    prompt = st.text_area("Enter your prompt:", 
+                         "Astronaut riding a horse",
+                         height=100)
     
-    if st.button("Generate") and prompt:
-        with st.spinner("Generating..."):
-            inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    # Параметры генерации
+    with st.expander("Advanced Settings"):
+        negative_prompt = st.text_input("Negative prompt:", "")
+        width = st.slider("Width", 256, 1024, 512)
+        height = st.slider("Height", 256, 1024, 512)
+        steps = st.slider("Steps", 10, 100, 25)
+        cfg_scale = st.slider("CFG Scale", 1.0, 20.0, 7.0)
+    
+    if st.button("Generate Image"):
+        if not prompt:
+            st.error("Please enter a prompt")
+            return
             
-            # Генерация с адаптированными параметрами
-            outputs = model.generate(
-                inputs.input_ids,
-                max_new_tokens=max_length,
-                temperature=temperature,
-                do_sample=True,
-                top_p=0.9,
-                pad_token_id=tokenizer.eos_token_id
-            )
-            
-            generated_text = tokenizer.decode(
-                outputs[0], 
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=True
-            )
-            
-            st.subheader("Result:")
-            st.markdown(f"```\n{generated_text}\n```")
+        with st.spinner("Generating image..."):
+            try:
+                # Генерация изображения
+                image = client.text_to_image(
+                    prompt,
+                    model="black-forest-labs/FLUX.1-dev",
+                    negative_prompt=negative_prompt,
+                    width=width,
+                    height=height,
+                    guidance_scale=cfg_scale,
+                    num_inference_steps=steps
+                )
+                
+                # Конвертация в BytesIO для Streamlit
+                img_byte_arr = io.BytesIO()
+                image.save(img_byte_arr, format='PNG')
+                
+                # Отображение результата
+                st.image(img_byte_arr.getvalue(),
+                       caption=prompt,
+                       use_column_width=True)
+                
+            except Exception as e:
+                st.error(f"Generation failed: {str(e)}")
 
 if __name__ == "__main__":
     main()
