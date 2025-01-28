@@ -9,8 +9,8 @@ def main():
     # Конфигурация через Secrets.toml
     api_key = st.secrets.get("HF_API_KEY", "your-api-key-here")
     
-    # Инициализация клиента
-    client = InferenceClient(provider="hf-inference", api_key=api_key)
+    # Инициализация клиента (без параметра provider)
+    client = InferenceClient(token=api_key)
     
     # Интерфейс
     prompt = st.text_area("Enter your prompt:", 
@@ -32,7 +32,7 @@ def main():
             
         with st.spinner("Generating image..."):
             try:
-                # Генерация изображения
+                # Генерация изображения с явным указанием модели
                 image = client.text_to_image(
                     prompt,
                     model="black-forest-labs/FLUX.1-dev",
@@ -43,11 +43,10 @@ def main():
                     num_inference_steps=steps
                 )
                 
-                # Конвертация в BytesIO для Streamlit
+                # Конвертация в BytesIO
                 img_byte_arr = io.BytesIO()
                 image.save(img_byte_arr, format='PNG')
                 
-                # Отображение результата
                 st.image(img_byte_arr.getvalue(),
                        caption=prompt,
                        use_column_width=True)
