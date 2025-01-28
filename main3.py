@@ -17,7 +17,7 @@ import torch
 
 ... # остальной код без изменений
 
-login(token="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")
+login(token="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")
 
 # Загрузка модели с кэшированием
 @st.cache_resource
