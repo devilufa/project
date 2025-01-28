@@ -1,13 +1,16 @@
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from huggingface_hub import login
 import torch
+
+login(token="ТОКЕН")
 
 # Загрузка модели с кэшированием
 @st.cache_resource
 def load_model():
     model_name = "black-forest-labs/FLUX.1-dev"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=True)
+    model = AutoModelForCausalLM.from_pretrained(model_name, use_auth_token=True)
     return model, tokenizer
 
 def main():
