@@ -2,16 +2,19 @@ import sys
 import locale
 import codecs
 
-# Фикс кодировки для POSIX систем
+# Фикс кодировки
 if sys.platform.startswith("linux"):
     locale.getpreferredencoding = lambda: "UTF-8"
     sys.stdin = codecs.getreader("UTF-8")(sys.stdin.detach())
     sys.stdout = codecs.getwriter("UTF-8")(sys.stdout.detach())
-    
-import streamlit as st
+
+sys.stdout.reconfigure(encoding='utf-8')  # Для всех систем
+
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from huggingface_hub import login
+import streamlit as st
 import torch
+
+... # остальной код без изменений
 
 login(token="ТОКЕН")
 
