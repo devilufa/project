@@ -4,7 +4,7 @@ from PIL import Image
 import io
 
 def main():
-    st.title("Генерация изобржений с помощью текстового запроса с использованием модели FLUX.1-dev")
+    st.title("Генерация изображений с помощью текстового запроса с использованием модели FLUX.1-dev")
     
     # Конфигурация через Secrets.toml
     api_key = st.secrets.get("HF_API_KEY", "your-api-key-here")
